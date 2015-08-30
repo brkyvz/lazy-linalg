@@ -2,6 +2,7 @@
 *.log
 *.pyc
 sbt/*.jar
+.idea/
 
 # sbt specific
 .cache/
