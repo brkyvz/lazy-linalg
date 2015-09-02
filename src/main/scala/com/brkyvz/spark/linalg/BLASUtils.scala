@@ -47,9 +47,9 @@ object BLASUtils {
   /**
    * y += a * x
    */
-  def axpy(a: Double, x: Vector, y: Vector): Unit = {
+  def axpy(a: Double, x: VectorLike, y: VectorLike): Unit = {
     val args: Seq[(Class[_], AnyRef)] = Seq((classOf[Double], new JavaDouble(a)),
-      (classOf[Vector], castVector(x)), (classOf[Vector], castVector(y)))
+      (classOf[Vector], castVector(x)), (classOf[Vector], castVector(y, toDense = true)))
     invokeMethod("axpy", args: _*)
   }
 
@@ -84,18 +84,26 @@ object BLASUtils {
     invokeMethod("syr", args: _*)
   }
 
-  def gemm(alpha: Double, a: MatrixLike, b: MatrixLike, beta: Double, c: DenseMatrix): Unit = {
-    b match {
-      case dnB: DenseMatrixWrapper => mllibGemm(alpha, castMatrix(a), dnB, beta, c)
+  /**
+   * C := alpha * A * B + beta * C
+   * @param alpha a scalar to scale the multiplication A * B.
+   * @param A the matrix A that will be left multiplied to B. Size of m x k.
+   * @param B the matrix B that will be left multiplied by A. Size of k x n.
+   * @param beta a scalar that can be used to scale matrix C.
+   * @param C the resulting matrix C. Size of m x n. C.isTransposed must be false.
+   */
+  def gemm(alpha: Double, A: MatrixLike, B: MatrixLike, beta: Double, C: DenseMatrix): Unit = {
+    B match {
+      case dnB: DenseMatrixWrapper => mllibGemm(alpha, castMatrix(A), dnB, beta, C)
       case spB: SparseMatrixWrapper =>
-        a match {
-          case dnA: DenseMatrixWrapper => dsgemm(alpha, dnA, spB, beta, c)
-          case spA: SparseMatrixWrapper => mllibGemm(alpha, spA, spB.toDense, beta, c)
+        A match {
+          case dnA: DenseMatrixWrapper => dsgemm(alpha, dnA, spB, beta, C)
+          case spA: SparseMatrixWrapper => mllibGemm(alpha, spA, spB.toDense, beta, C)
           case lzy: LazyMatrix =>
-            dsgemm(alpha, lzy.compute().asInstanceOf[DenseMatrixWrapper], spB, beta, c)
+            dsgemm(alpha, lzy.compute().asInstanceOf[DenseMatrixWrapper], spB, beta, C)
         }
       case lzy: LazyMatrix =>
-        mllibGemm(alpha, castMatrix(a), lzy.compute().asInstanceOf[DenseMatrix], beta, c)
+        mllibGemm(alpha, castMatrix(A), lzy.compute().asInstanceOf[DenseMatrix], beta, C)
     }
   }
 
@@ -221,17 +229,25 @@ object BLASUtils {
     }
   }
 
+  /**
+   * y := alpha * A * x + beta * y
+   * @param alpha a scalar to scale the multiplication A * x.
+   * @param A the matrix A that will be left multiplied to x. Size of m x n.
+   * @param x the vector x that will be left multiplied by A. Size of n x 1.
+   * @param beta a scalar that can be used to scale vector y.
+   * @param y the resulting vector y. Size of m x 1.
+   */
   def gemv(
       alpha: Double,
-      a: MatrixLike,
+      A: MatrixLike,
       x: VectorLike,
       beta: Double,
       y: VectorLike): Unit = {
-    val A: Matrix = castMatrix(a)
+    val a: Matrix = castMatrix(A)
     val _x: Vector = castVector(x)
     val _y: Vector = castVector(y)
     val args: Seq[(Class[_], AnyRef)] = Seq((classOf[Double], new JavaDouble(alpha)),
-      (classOf[Matrix], A), (classOf[Vector], x),
+      (classOf[Matrix], a), (classOf[Vector], x),
       (classOf[Double], new JavaDouble(beta)), (classOf[DenseVector], y))
     invokeMethod("gemv", args: _*)
   }

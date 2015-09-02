@@ -154,11 +154,9 @@ class BLASUtilsSuite extends FunSuite {
     val expected5 = new DenseMatrix(4, 2, Array(1.0, 0.0, 2.0, 1.0, 0.0, 0.0, 1.0, 0.0))
 
     gemm(1.0, dA, dB, 0.0, C2)
-    // TODO: enable once fix is in Spark
-    // assert(C17 ~== expected absTol 1e-15)
+    assert(C2 ~== expected absTol 1e-15)
     gemm(1.0, sA, dB, 0.0, C2)
-    // TODO: enable once fix is in Spark
-    // assert(C17 ~== expected absTol 1e-15)
+    assert(C2 ~== expected absTol 1e-15)
 
     withClue("columns of A don't match the rows of B") {
       intercept[Exception] {
@@ -176,11 +174,8 @@ class BLASUtilsSuite extends FunSuite {
     val BTT = dBTman.transpose
     val sBTT = dBTman.toSparse.transpose
 
-    val combinations = Seq((1.0, 2.0, expected2), (2.0, 2.0, expected3),
+    val combinations = Seq((1.0, 0.0, expected), (1.0, 2.0, expected2), (2.0, 2.0, expected3),
       (0.0, 5.0, expected4), (0.0, 1.0, expected5))
-
-    // TODO: enable once fixed in mllib
-    // combinations ++= Seq((1.0, 0.0, expected))
 
     combinations.foreach { case (alpha, beta, expectation) =>
       def checkResult(a: MatrixLike, b: MatrixLike): Unit = {

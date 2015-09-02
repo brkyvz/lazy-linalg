@@ -25,16 +25,37 @@ package object linalg {
     case sp: SparseVector => new SparseVectorWrapper(sp.size, sp.indices, sp.values)
   }
 
-  trait Scalar extends MatrixLike
+  trait Scalar extends MatrixLike {
+    val value: Double
 
-  implicit class MatrixLikeDouble(val value: Double) extends Scalar {
+    def *(y: MatrixLike): LazyMatrix = LazyImDenseScaleOp(this, y)
+    def *(y: VectorLike): LazyVector = LazyVectorScaleOp(this, y)
+  }
+
+  implicit def double2Scalar(x: Double): Scalar = new Scalar {
+    override val value: Double = x
     def apply(i: Int): Double = value
     override def numRows = 1
     override def numCols = 1
   }
 
-  implicit class MatrixLikeInt(val value: Int) extends Scalar {
-    def apply(i: Int): Double = value * 1.0
+  implicit def int2Scalar(x: Int): Scalar = new Scalar {
+    override val value: Double = x.toDouble
+    def apply(i: Int): Double = value
+    override def numRows = 1
+    override def numCols = 1
+  }
+
+  implicit def float2Scalar(x: Float): Scalar = new Scalar {
+    override val value: Double = x.toDouble
+    def apply(i: Int): Double = value
+    override def numRows = 1
+    override def numCols = 1
+  }
+
+  implicit def long2Scalar(x: Long): Scalar = new Scalar {
+    override val value: Double = x.toDouble
+    def apply(i: Int): Double = value
     override def numRows = 1
     override def numCols = 1
   }
