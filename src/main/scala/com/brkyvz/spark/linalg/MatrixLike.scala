@@ -57,18 +57,20 @@ class DenseMatrixWrapper(
   override def apply(i: Int): Double = values(i)
 
   def +=(y: MatrixLike): this.type = {
-    require(y.numRows == this.numRows,
+    require(y.numRows == this.numRows || y.isInstanceOf[Scalar],
       s"Rows don't match for in-place addition. ${this.numRows} vs. ${y.numRows}")
-    require(y.numCols == this.numCols,
+    require(y.numCols == this.numCols || y.isInstanceOf[Scalar],
       s"Cols don't match for in-place addition. ${this.numCols} vs. ${y.numCols}")
     y match {
-      case dd: LazyMM_MMultOp => new LazyMM_MMultOp(dd.left, dd.right, Option(this.values)).compute()
-      case dl: LazyML_MMultOp => new LazyML_MMultOp(dl.left, dl.right, Option(this.values)).compute()
-      case ld: LazyLM_MMultOp => new LazyLM_MMultOp(ld.left, ld.right, Option(this.values)).compute()
-      case ll: LazyLL_MMultOp => new LazyLL_MMultOp(ll.left, ll.right, Option(this.values)).compute()
-      case mm: MutableMatrix => new LazyImDenseMMOp(this, y, _ + _).compute(Option(this.values))
-      case lzy: LazyMatrix => new LazyImDenseMMOp(this, y, _ + _).compute(Option(this.values))
-      case _ => throw new UnsupportedOperationException
+      case dd: LazyMM_MMultOp =>
+        new LazyMM_MMultOp(dd.left, dd.right, Option(this.values), 1.0).compute()
+      case dl: LazyML_MMultOp =>
+        new LazyML_MMultOp(dl.left, dl.right, Option(this.values), 1.0).compute()
+      case ld: LazyLM_MMultOp =>
+        new LazyLM_MMultOp(ld.left, ld.right, Option(this.values), 1.0).compute()
+      case ll: LazyLL_MMultOp =>
+        new LazyLL_MMultOp(ll.left, ll.right, Option(this.values), 1.0).compute()
+      case _ => new LazyImDenseMMOp(this, y, _ + _).compute(Option(this.values))
     }
     this
   }
@@ -78,7 +80,18 @@ class DenseMatrixWrapper(
       s"Rows don't match for in-place evaluation. ${this.numRows} vs. ${y.numRows}")
     require(y.numCols == this.numCols,
       s"Cols don't match for in-place evaluation. ${this.numCols} vs. ${y.numCols}")
-    y.compute(Option(this.values))
+    y match {
+      case dd: LazyMM_MMultOp =>
+        new LazyMM_MMultOp(dd.left, dd.right, Option(this.values), 0.0).compute()
+      case dl: LazyML_MMultOp =>
+        new LazyML_MMultOp(dl.left, dl.right, Option(this.values), 0.0).compute()
+      case ld: LazyLM_MMultOp =>
+        new LazyLM_MMultOp(ld.left, ld.right, Option(this.values), 0.0).compute()
+      case ll: LazyLL_MMultOp =>
+        new LazyLL_MMultOp(ll.left, ll.right, Option(this.values), 0.0).compute()
+      case _ => y.compute(Option(this.values))
+    }
+    this
   }
 }
 
@@ -179,7 +192,8 @@ private[linalg] class LazyMatrixMapOp(
 private[linalg] abstract class LazyMMultOp(
     left: MatrixLike,
     right: MatrixLike,
-    into: Option[Array[Double]] = None) extends LazyMatrix {
+    into: Option[Array[Double]] = None,
+    beta: Double = 1.0) extends LazyMatrix {
   override def numRows = left.numRows
   override def numCols = right.numCols
 }
@@ -187,7 +201,8 @@ private[linalg] abstract class LazyMMultOp(
 private[linalg] class LazyLL_MMultOp(
     val left: LazyMatrix,
     val right: LazyMatrix,
-    into: Option[Array[Double]] = None) extends LazyMMultOp(left, right, into) {
+    into: Option[Array[Double]] = None,
+    beta: Double = 1.0) extends LazyMMultOp(left, right, into, beta) {
   override def apply(i: Int): Double = result(i)
 
   private var buffer: Option[Array[Double]] = into
@@ -259,7 +274,7 @@ private[linalg] class LazyLL_MMultOp(
       if (leftRes.isEmpty && rightRes.isEmpty) {
         val inside = new DenseMatrixWrapper(effLeft.numRows, effRight.numCols,
           buffer.getOrElse(new Array[Double](effLeft.numRows * effRight.numCols)))
-        BLASUtils.gemm(leftScale * rightScale, effLeft, effRight, 1.0, inside)
+        BLASUtils.gemm(leftScale * rightScale, effLeft, effRight, beta, inside)
         inside
       } else {
         val inside = DenseMatrix.zeros(effLeft.numRows, effRight.numCols)
@@ -275,18 +290,18 @@ private[linalg] class LazyLL_MMultOp(
     leftRes.getOrElse(None) match {
       case l: LazyMatrix =>
         rebuildRight match {
-          case r: LazyMatrix => new LazyLL_MMultOp(l, r, buffer).compute()
-          case d: DenseMatrixWrapper => new LazyLM_MMultOp(l, d, buffer).compute()
+          case r: LazyMatrix => new LazyLL_MMultOp(l, r, buffer, beta).compute()
+          case d: DenseMatrixWrapper => new LazyLM_MMultOp(l, d, buffer, beta).compute()
         }
       case ld: DenseMatrixWrapper =>
         rebuildRight match {
-          case r: LazyMatrix => new LazyML_MMultOp(ld, r, buffer).compute()
-          case d: DenseMatrixWrapper => new LazyMM_MMultOp(ld, d, buffer).compute()
+          case r: LazyMatrix => new LazyML_MMultOp(ld, r, buffer, beta).compute()
+          case d: DenseMatrixWrapper => new LazyMM_MMultOp(ld, d, buffer, beta).compute()
         }
       case None =>
         rebuildRight match {
-          case r: LazyMM_MMultOp => new LazyMM_MMultOp(r.left, r.right, buffer).compute()
-          case l: LazyML_MMultOp => new LazyML_MMultOp(l.left, l.right, buffer).compute()
+          case r: LazyMM_MMultOp => new LazyMM_MMultOp(r.left, r.right, buffer, beta).compute()
+          case l: LazyML_MMultOp => new LazyML_MMultOp(l.left, l.right, buffer, beta).compute()
           case d: DenseMatrixWrapper => d
         }
     }
@@ -300,7 +315,8 @@ private[linalg] class LazyLL_MMultOp(
 private[linalg] class LazyLM_MMultOp(
     val left: LazyMatrix,
     val right: MutableMatrix,
-    into: Option[Array[Double]] = None) extends LazyMMultOp(left, right, into) {
+    into: Option[Array[Double]] = None,
+    beta: Double = 1.0) extends LazyMMultOp(left, right, into, beta) {
   override def apply(i: Int): Double = result(i)
 
   private var buffer: Option[Array[Double]] = into
@@ -342,7 +358,7 @@ private[linalg] class LazyLM_MMultOp(
       if (leftRes.isEmpty) {
         val inside = new DenseMatrixWrapper(effLeft.numRows, right.numCols,
           buffer.getOrElse(new Array[Double](effLeft.numRows * right.numCols)))
-        BLASUtils.gemm(leftScale, effLeft, right, 1.0, inside)
+        BLASUtils.gemm(leftScale, effLeft, right, beta, inside)
         inside
       } else {
         val inside = DenseMatrix.zeros(effLeft.numRows, right.numCols)
@@ -351,8 +367,8 @@ private[linalg] class LazyLM_MMultOp(
       }
 
     leftRes.getOrElse(None) match {
-      case l: LazyMatrix => new LazyLM_MMultOp(l, middle, buffer).compute()
-      case ld: DenseMatrixWrapper => new LazyMM_MMultOp(ld, middle, buffer).compute()
+      case l: LazyMatrix => new LazyLM_MMultOp(l, middle, buffer, beta).compute()
+      case ld: DenseMatrixWrapper => new LazyMM_MMultOp(ld, middle, buffer, beta).compute()
       case None => middle
     }
   }
@@ -366,7 +382,8 @@ private[linalg] class LazyLM_MMultOp(
 private[linalg] class LazyML_MMultOp(
     val left: MutableMatrix,
     val right: LazyMatrix,
-    into: Option[Array[Double]] = None) extends LazyMMultOp(left, right, into) {
+    into: Option[Array[Double]] = None,
+    beta: Double = 1.0) extends LazyMMultOp(left, right, into, beta) {
   override def apply(i: Int): Double = result(i)
 
   private var buffer: Option[Array[Double]] = into
@@ -407,7 +424,7 @@ private[linalg] class LazyML_MMultOp(
       if (rightRes.isEmpty) {
         val inside = new DenseMatrixWrapper(left.numRows, effRight.numCols,
           buffer.getOrElse(new Array[Double](left.numRows * effRight.numCols)))
-        BLASUtils.gemm(rightScale, left, effRight, 1.0, inside)
+        BLASUtils.gemm(rightScale, left, effRight, beta, inside)
         inside
       } else {
         val inside = DenseMatrix.zeros(left.numRows, effRight.numCols)
@@ -416,8 +433,8 @@ private[linalg] class LazyML_MMultOp(
       }
 
     rightRes.getOrElse(None) match {
-      case l: LazyMatrix => new LazyML_MMultOp(middle, l, buffer).compute()
-      case d: DenseMatrixWrapper => new LazyMM_MMultOp(middle, d, buffer).compute()
+      case l: LazyMatrix => new LazyML_MMultOp(middle, l, buffer, beta).compute()
+      case d: DenseMatrixWrapper => new LazyMM_MMultOp(middle, d, buffer, beta).compute()
       case None => middle
     }
   }
@@ -431,7 +448,8 @@ private[linalg] class LazyML_MMultOp(
 private[linalg] class LazyMM_MMultOp(
     val left: MutableMatrix,
     val right: MutableMatrix,
-    into: Option[Array[Double]] = None) extends LazyMMultOp(left, right, into) {
+    into: Option[Array[Double]] = None,
+    beta: Double = 1.0) extends LazyMMultOp(left, right, into, beta) {
   override def apply(i: Int): Double = result(i)
 
   private var buffer: Option[Array[Double]] = into
@@ -439,7 +457,7 @@ private[linalg] class LazyMM_MMultOp(
   lazy val result: DenseMatrixWrapper = {
     val inside = new DenseMatrixWrapper(left.numRows, right.numCols,
       buffer.getOrElse(new Array[Double](left.numRows * right.numCols)))
-    BLASUtils.gemm(1.0, left, right, 1.0, inside)
+    BLASUtils.gemm(1.0, left, right, beta, inside)
     inside
   }
 

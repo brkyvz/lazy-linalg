@@ -29,6 +29,11 @@ class MatricesSuite extends FunSuite with PerTestSparkContext {
 
     wrapper := a - c
     assert(wrapper.values.toSeq === Seq(0.0, 2.0, 3.0, 4.0))
+
+    val d = b.copy
+
+    d += -2
+    assert(d.values.toSeq === Seq(-2.0, -4.0, -2.0, -4.0))
   }
 
   test("requires right buffer size") {
@@ -74,6 +79,12 @@ class MatricesSuite extends FunSuite with PerTestSparkContext {
     val A = DenseMatrix.eye(2)
     A += c * a
     assert(A.values.toSeq === Seq(2.0, 0.0, 3.0, 1.0))
+
+    val B = DenseMatrix.zeros(2, 2)
+    B := a * b
+    val firstVals = B.values.clone().toSeq
+    B := a * b
+    assert(B.values.toSeq === firstVals)
   }
 
   test("rdd methods") {
