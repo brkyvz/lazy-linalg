@@ -21,7 +21,51 @@ in C++ libraries like Armadillo, Eigen, etc.
 Installation
 ============
 
+Include this package in your Spark Applications using:
 
+### spark-shell, pyspark, or spark-submit
+
+```
+> $SPARK_HOME/bin/spark-shell --packages brkyvz:lazy-linalg:0.1.0
+```
+
+### sbt
+
+If you use the [sbt-spark-package plugin](https://github.com/databricks/sbt-spark-package), 
+in your sbt build file, add:
+
+```scala
+spDependencies += "brkyvz/lazy-linalg:0.1.0"
+```
+
+Otherwise,
+
+```scala
+resolvers += "Spark Packages Repo" at "http://dl.bintray.com/spark-packages/maven"
+
+libraryDependencies += "brkyvz" % "lazy-linalg" % "0.1.0"
+```
+
+### Maven
+
+In your pom.xml, add:
+```xml
+<dependencies>
+  <!-- list of dependencies -->
+  <dependency>
+    <groupId>brkyvz</groupId>
+    <artifactId>lazy-linalg</artifactId>
+    <version>0.1.0</version>
+  </dependency>
+</dependencies>
+<repositories>
+  <!-- list of other repositories -->
+  <repository>
+    <id>SparkPackagesRepo</id>
+    <url>http://dl.bintray.com/spark-packages/maven</url>
+  </repository>
+</repositories>
+```
 
 Examples
 ========
