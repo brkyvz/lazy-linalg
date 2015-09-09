@@ -20,3 +20,16 @@ ScoverageSbtPlugin.ScoverageKeys.coverageHighlighting := {
   if (scalaBinaryVersion.value == "2.10") false
   else false
 }
+
+spShortDescription := "Linear algebra operators for Apache Spark MLlib's linalg package"
+
+spDescription :=
+  """It is somewhat cumbersome to write code where you have to convert the MLlib representation of a
+    |vector or matrix to Breeze perform the simplest arithmetic operations like addition, subtraction, etc.
+    |This package aims to lift that burden, and provide efficient implementations for some of these methods.
+    |
+    |By keeping operations lazy, this package provides some of the optimizations that you would see
+    |in C++ libraries like Armadillo, Eigen, etc.
+  """.stripMargin
+
+credentials += Credentials(Path.userHome / ".ivy2" / ".sbtcredentials")

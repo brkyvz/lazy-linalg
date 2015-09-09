@@ -1,8 +1,7 @@
 lazy-linalg
 -----------
 
-A package full of linear algebra operators for Apache Spark MLlib's linalg package.
-Works best with Spark 1.5.
+Linear algebra operators for Apache Spark MLlib's linalg package. Works best with Spark 1.5.
 
 Goal
 ====
@@ -148,7 +147,7 @@ Caveats
 What's to Come
 ==============
 
-1- Support for more linear algebra operations: determinant, matrix inverse, trace, slicing, 
+1- Support for more linear algebra operations: determinant, matrix inverse, trace, slicing,
 reshaping...
 
 2- Supporting such methods with BlockMatrix.
