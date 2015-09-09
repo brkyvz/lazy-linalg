@@ -4,8 +4,10 @@ scala:
 jdk:
   - openjdk7
 sudo: false
+before_install:
+  - pip install --user codecov
 script:
   - sbt -jvm-opts travis/jvmopts.compile compile
   - sbt -jvm-opts travis/jvmopts.test test
 after_success:
-  bash <(curl -s https://codecov.io/bash)
+  - codecov

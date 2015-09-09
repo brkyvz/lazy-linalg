@@ -18,7 +18,7 @@ parallelExecution in Test := false
 
 ScoverageSbtPlugin.ScoverageKeys.coverageHighlighting := {
   if (scalaBinaryVersion.value == "2.10") false
-  else false
+  else true
 }
 
 spShortDescription := "Linear algebra operators for Apache Spark MLlib's linalg package"
